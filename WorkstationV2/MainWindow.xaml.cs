@@ -25,8 +25,10 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _saveCts;
     private CancellationTokenSource? _toastCts;
 
-    private static string ToolsFilePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkstationV2", "Tools.json");
+    private static string ToolsDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkstationV2");
+
+    private static string ToolsFilePath => Path.Combine(ToolsDir, "Tools.json");
 
     public MainWindow()
     {
@@ -75,11 +77,224 @@ public partial class MainWindow : Window
         ReloadToolsFromDisk();
     }
 
+    private void OpenTools_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _ = _config.LoadToolsSeedIfMissing();
+            Directory.CreateDirectory(ToolsDir);
+
+            if (!File.Exists(ToolsFilePath))
+            {
+                // Seed may have created it; if not, create minimal file.
+                File.WriteAllText(ToolsFilePath, "{\n  \"tools\": []\n}\n", new UTF8Encoding(false));
+            }
+
+            // Avoid opening in a browser; open in Notepad explicitly.
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "notepad.exe",
+                Arguments = $"\"{ToolsFilePath}\"",
+                UseShellExecute = false
+            });
+
+            ShowToast("Opened Tools.json");
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Open failed: " + ex.Message);
+        }
+    }
+
+    private void ExportTools_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var json = SerializeTools(_tools);
+            Clipboard.SetText(json);
+            ShowToast("Tools copied to clipboard");
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Export failed: " + ex.Message);
+        }
+    }
+
+    private void ImportTools_Click(object sender, RoutedEventArgs e)
+    {
+        ShowImportToolsDialog();
+    }
+
+    private void ShowImportToolsDialog()
+    {
+        try
+        {
+            var dlg = new Window
+            {
+                Title = "Import Tools.json",
+                Width = 760,
+                Height = 560,
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            var root = new Grid { Margin = new Thickness(12) };
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var header = new TextBlock
+            {
+                Text = "Paste JSON matching the Tools.json schema (root object with \"tools\": [...]).",
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(header, 0);
+            root.Children.Add(header);
+
+            var box = new TextBox
+            {
+                AcceptsReturn = true,
+                AcceptsTab = true,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                TextWrapping = TextWrapping.NoWrap,
+                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                Margin = new Thickness(0, 10, 0, 10)
+            };
+            Grid.SetRow(box, 1);
+            root.Children.Add(box);
+
+            var error = new TextBlock
+            {
+                Foreground = System.Windows.Media.Brushes.OrangeRed,
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            Grid.SetRow(error, 2);
+            root.Children.Add(error);
+
+            var buttons = new DockPanel { LastChildFill = false };
+
+            var cancel = new Button { Content = "Cancel", Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(0, 0, 8, 0) };
+            cancel.Click += (_, _) => dlg.Close();
+            DockPanel.SetDock(cancel, Dock.Right);
+            buttons.Children.Add(cancel);
+
+            var save = new Button { Content = "Validate + Save", Padding = new Thickness(12, 6, 12, 6) };
+            DockPanel.SetDock(save, Dock.Right);
+            buttons.Children.Add(save);
+
+            Grid.SetRow(buttons, 3);
+            root.Children.Add(buttons);
+
+            dlg.Content = root;
+
+            // Prefill: clipboard JSON if present; else current tools JSON.
+            try
+            {
+                var clip = Clipboard.GetText();
+                if (!string.IsNullOrWhiteSpace(clip) && (clip.TrimStart().StartsWith("{") || clip.TrimStart().StartsWith("[")))
+                {
+                    box.Text = clip;
+                }
+                else
+                {
+                    box.Text = SerializeTools(_tools);
+                }
+            }
+            catch
+            {
+                box.Text = SerializeTools(_tools);
+            }
+
+            save.Click += (_, _) =>
+            {
+                try
+                {
+                    var input = box.Text ?? string.Empty;
+                    var (ok, cfg, msg) = TryParseAndValidateTools(input);
+
+                    if (!ok || cfg == null)
+                    {
+                        error.Text = msg;
+                        error.Visibility = Visibility.Visible;
+                        return;
+                    }
+
+                    Directory.CreateDirectory(ToolsDir);
+                    File.WriteAllText(ToolsFilePath, SerializeTools(cfg), new UTF8Encoding(false));
+
+                    _tools = cfg;
+                    BuildToolsGrid();
+                    ValidateToolsAndShowBanner(_tools);
+
+                    ShowToast("Tools imported");
+                    dlg.Close();
+                }
+                catch (Exception ex)
+                {
+                    error.Text = "Import failed: " + ex.Message;
+                    error.Visibility = Visibility.Visible;
+                }
+            };
+
+            dlg.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Import UI failed: " + ex.Message);
+        }
+    }
+
+    private static string SerializeTools(ToolsConfig cfg)
+    {
+        var opts = new JsonSerializerOptions { WriteIndented = true };
+        return JsonSerializer.Serialize(cfg, opts);
+    }
+
+    private (bool ok, ToolsConfig? cfg, string message) TryParseAndValidateTools(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return (false, null, "Input is empty.");
+        }
+
+        try
+        {
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var cfg = JsonSerializer.Deserialize<ToolsConfig>(json, opts);
+            if (cfg == null)
+            {
+                return (false, null, "JSON parsed as null.");
+            }
+
+            // Root must contain tools array (empty allowed)
+            cfg.Tools ??= new List<ToolItem>();
+
+            var issues = GetToolIssues(cfg);
+            if (issues.Count > 0)
+            {
+                var shown = issues.Take(8).ToList();
+                var more = issues.Count - shown.Count;
+                var msg = "Validation issues:\n" + string.Join("\n", shown);
+                if (more > 0) msg += $"\n(+{more} more)";
+                return (false, null, msg);
+            }
+
+            return (true, cfg, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return (false, null, "JSON parse failed: " + ex.Message);
+        }
+    }
+
     private void ReloadToolsFromDisk()
     {
         try
         {
-            // Ensure a seeded Tools.json exists at least once
             _ = _config.LoadToolsSeedIfMissing();
 
             if (!File.Exists(ToolsFilePath))
@@ -91,13 +306,10 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var json = File.ReadAllText(ToolsFilePath, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            var opts = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
+            var json = File.ReadAllText(ToolsFilePath, new UTF8Encoding(false));
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = JsonSerializer.Deserialize<ToolsConfig>(json, opts);
+
             if (cfg == null)
             {
                 ShowToolsError("Tools.json parsed as null.");
@@ -105,9 +317,10 @@ public partial class MainWindow : Window
                 return;
             }
 
+            cfg.Tools ??= new List<ToolItem>();
             _tools = cfg;
-            BuildToolsGrid();
 
+            BuildToolsGrid();
             var hasIssues = ValidateToolsAndShowBanner(_tools);
             ShowToast(hasIssues ? "Tools reloaded (with issues)" : "Tools reloaded");
         }
@@ -341,10 +554,8 @@ public partial class MainWindow : Window
     private void SaveNow()
     {
         CaptureLayoutToState();
-
         _state.WindowWidth = (int)Math.Max(0, ActualWidth);
         _state.WindowHeight = (int)Math.Max(0, ActualHeight);
-
         _config.SaveState(_state);
     }
 
@@ -419,7 +630,6 @@ public partial class MainWindow : Window
             return false;
         }
 
-        // Minimal required payload validation for known types
         switch (type)
         {
             case "OpenUrl":
@@ -475,7 +685,7 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private bool ValidateToolsAndShowBanner(ToolsConfig cfg)
+    private static List<string> GetToolIssues(ToolsConfig cfg)
     {
         var list = cfg.Tools ?? new List<ToolItem>();
         var issues = new List<string>();
@@ -490,6 +700,12 @@ public partial class MainWindow : Window
             }
         }
 
+        return issues;
+    }
+
+    private bool ValidateToolsAndShowBanner(ToolsConfig cfg)
+    {
+        var issues = GetToolIssues(cfg);
         if (issues.Count == 0)
         {
             HideToolsError();
@@ -545,7 +761,6 @@ public partial class MainWindow : Window
 
             if (!TryGetDigitKey(e.Key, out var digit)) return;
 
-            // Ctrl+1/2/3: focus tiles
             if (mods == ModifierKeys.Control)
             {
                 if (digit == 1) { FocusTile(1); ShowToast("Focus Tile 1"); e.Handled = true; }
@@ -554,7 +769,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Ctrl+Shift+1..9: run tool buttons 1..9 from Tools.json order
             if (mods == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 if (digit >= 1 && digit <= 9)

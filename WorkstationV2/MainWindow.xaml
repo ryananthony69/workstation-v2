@@ -90,11 +90,12 @@
                             <TextBlock x:Name="ToolsErrorText" Foreground="White" FontSize="12" TextWrapping="Wrap"/>
                         </Border>
 
-                        <Button x:Name="ReloadToolsButton"
-                                Content="Reload Tools"
-                                Padding="10,4"
-                                Margin="0,0,0,8"
-                                Click="ReloadTools_Click"/>
+                        <WrapPanel Margin="0,0,0,8">
+                            <Button x:Name="ReloadToolsButton" Content="Reload" Padding="10,4" Margin="0,0,8,0" Click="ReloadTools_Click"/>
+                            <Button x:Name="OpenToolsButton" Content="Open Tools.json" Padding="10,4" Margin="0,0,8,0" Click="OpenTools_Click"/>
+                            <Button x:Name="ExportToolsButton" Content="Export (Clipboard)" Padding="10,4" Margin="0,0,8,0" Click="ExportTools_Click"/>
+                            <Button x:Name="ImportToolsButton" Content="Import..." Padding="10,4" Click="ImportTools_Click"/>
+                        </WrapPanel>
 
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <UniformGrid x:Name="ToolsGrid" Columns="3"/>
