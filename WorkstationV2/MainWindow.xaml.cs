@@ -138,16 +138,24 @@ public partial class MainWindow : Window
 
     private void ToolsSearch_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            // Requirement: when search has focus, Tab moves focus to the tools grid while keeping selection active.
+            FocusSelectedToolButton();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Down)
         {
-            MoveToolSelection(+1);
+            MoveToolSelection(+1, focusButton: false);
             e.Handled = true;
             return;
         }
 
         if (e.Key == Key.Up)
         {
-            MoveToolSelection(-1);
+            MoveToolSelection(-1, focusButton: false);
             e.Handled = true;
             return;
         }
@@ -158,9 +166,75 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+
+        if (e.Key == Key.Escape)
+        {
+            ClearToolsSearchAndReset();
+            e.Handled = true;
+            return;
+        }
     }
 
-    private void MoveToolSelection(int delta)
+    private void ClearToolsSearchAndReset()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(ToolsSearchBox.Text))
+            {
+                ToolsSearchBox.Text = string.Empty;
+            }
+            else
+            {
+                // Ensure reset even if already empty.
+                _toolsSearch = string.Empty;
+                _selectedToolIndex = -1;
+                BuildToolsGrid();
+            }
+
+            ToolsSearchBox.Focus();
+            ToolsSearchBox.SelectAll();
+            ShowToast("Search cleared");
+        }
+        catch { }
+    }
+
+    private void FocusToolsSearch()
+    {
+        try
+        {
+            ToolsSearchBox.Focus();
+            ToolsSearchBox.SelectAll();
+        }
+        catch { }
+    }
+
+    private static bool IsDescendantOf(DependencyObject? child, DependencyObject ancestor)
+    {
+        var cur = child;
+        while (cur != null)
+        {
+            if (ReferenceEquals(cur, ancestor)) return true;
+            cur = VisualTreeHelper.GetParent(cur);
+        }
+        return false;
+    }
+
+    private bool IsFocusInToolsArea()
+    {
+        try
+        {
+            var fe = Keyboard.FocusedElement as DependencyObject;
+            if (fe == null) return false;
+            if (ReferenceEquals(fe, ToolsSearchBox)) return true;
+            return IsDescendantOf(fe, ToolsGrid);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void MoveToolSelection(int delta, bool focusButton)
     {
         if (_filteredTools.Count == 0)
         {
@@ -173,6 +247,7 @@ public partial class MainWindow : Window
         {
             _selectedToolIndex = 0;
             ApplyToolSelectionVisuals();
+            if (focusButton) FocusSelectedToolButton();
             return;
         }
 
@@ -185,6 +260,24 @@ public partial class MainWindow : Window
 
         _selectedToolIndex = next;
         ApplyToolSelectionVisuals();
+        if (focusButton) FocusSelectedToolButton();
+    }
+
+    private void FocusSelectedToolButton()
+    {
+        try
+        {
+            if (_toolButtons.Count == 0) return;
+
+            var idx = _selectedToolIndex;
+            if (idx < 0 || idx >= _toolButtons.Count) idx = 0;
+
+            _selectedToolIndex = idx;
+            ApplyToolSelectionVisuals();
+
+            _toolButtons[idx].Focus();
+        }
+        catch { }
     }
 
     private void RunSelectedOrSingleMatch()
@@ -475,7 +568,6 @@ public partial class MainWindow : Window
 
     private void ApplyToolSelectionVisuals()
     {
-        // Highlight selected tool button using system highlight brush (no custom theme dependency).
         for (var i = 0; i < _toolButtons.Count; i++)
         {
             var b = _toolButtons[i];
@@ -905,6 +997,52 @@ public partial class MainWindow : Window
         {
             var mods = Keyboard.Modifiers;
 
+            // Ctrl+F focuses Tools search box
+            if (mods == ModifierKeys.Control && e.Key == Key.F)
+            {
+                FocusToolsSearch();
+                ShowToast("Tools search");
+                e.Handled = true;
+                return;
+            }
+
+            // Esc clears search box and resets
+            if (e.Key == Key.Escape)
+            {
+                if (IsFocusInToolsArea() || !string.IsNullOrWhiteSpace(ToolsSearchBox.Text))
+                {
+                    ClearToolsSearchAndReset();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // Keep selection navigation active even when focus is on tool buttons
+            if (IsFocusInToolsArea() && !ReferenceEquals(Keyboard.FocusedElement, ToolsSearchBox))
+            {
+                if (e.Key == Key.Down)
+                {
+                    MoveToolSelection(+1, focusButton: true);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (e.Key == Key.Up)
+                {
+                    MoveToolSelection(-1, focusButton: true);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (e.Key == Key.Enter)
+                {
+                    RunSelectedOrSingleMatch();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // Existing shortcuts: Ctrl+1/2/3 focus tiles
             if (!TryGetDigitKey(e.Key, out var digit)) return;
 
             if (mods == ModifierKeys.Control)
@@ -915,6 +1053,7 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // Existing shortcuts: Ctrl+Shift+1..9 run tools 1..9 in Tools.json order
             if (mods == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 if (digit >= 1 && digit <= 9)

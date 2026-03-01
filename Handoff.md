@@ -1,49 +1,54 @@
 # Handoff
 
 ## What changed
-- Added selection navigation for filtered tools:
-  - Maintains a selected tool index within the filtered list
-  - Up/Down arrows move selection (wraps)
+- Added “global tools hotkey mode” behavior:
+  - Ctrl+F focuses the Tools search box (selects text)
+  - Esc clears the Tools search box and resets tool list to all tools
+  - When Tools search has focus, Tab moves focus into the tools grid (first selected tool button)
+- Kept selection navigation active even when focus is on tool buttons:
+  - Up/Down changes selection and moves focus to the selected tool
   - Enter runs the selected tool
-  - Selected tool button is highlighted (system highlight border)
-- Clicking a tool also updates selection to that tool before running it
-- Kept existing features: WebView2 tiles, Canvas panel, ScriptRunner, splitters + persisted layout, shortcuts, toast, tools reload/open/export/import, validation banner
+- No changes to Tools.json schema or persistence paths
 
 ## How to run/use
 - dotnet run --project .\WorkstationV2\WorkstationV2.csproj
-- Tools search:
-  - Type in the search box to filter tools by label
-  - Up/Down changes the selected tool in the filtered list
-  - Enter runs the selected tool (or the only match if exactly one tool remains)
+- Tools workflow:
+  - Ctrl+F = focus Tools search
+  - Type to filter tools by label
+  - Up/Down = change selection (works in search box and on tool buttons)
+  - Enter = run selected tool (or the only match)
+  - Tab (from search box) = move focus into tool buttons
+  - Esc = clear search and reset to all tools
+- Existing shortcuts remain:
+  - Ctrl+1/2/3 = focus tiles
+  - Ctrl+Shift+1..9 = run tools #1..#9 (Tools.json order)
 
 ## How to test/verify
 - Launch app
-- In Tools search box:
-  - Type a query that yields multiple tools
-  - Press Down/Up and confirm the highlighted tool changes
-  - Press Enter and confirm the highlighted tool runs
-- Type a query that yields exactly one tool and press Enter:
-  - Tool runs
-- Click any tool:
-  - Tool runs and selection moves to it
+- Press Ctrl+F and confirm search box is focused and selected
+- Type a search query, then:
+  - Press Tab: focus moves to a tool button and selection stays highlighted
+  - Press Up/Down: selection moves and focus follows
+  - Press Enter: selected tool runs
+- Press Esc:
+  - Search clears and all tools are shown again
+  - Search box is focused
 
 ## Known issues
-- Up/Down/Enter selection navigation is currently handled from the Tools search box (not global).
+- If a WebView2 tile is capturing certain key combos in rare cases, PreviewKeyDown usually still handles Ctrl+F/Esc but behavior may vary by focus.
 
 ## Next steps
-- Add optional global navigation: when the Tools panel is visible, Up/Down/Enter could control selection even when focus is elsewhere
-- Add a “Clear” (X) button for the search box
-- Add a small count indicator: “Showing X of Y tools”
+- Add a small UI hint line under the search box: “Ctrl+F focus, Esc clear, Up/Down select, Enter run”
+- Add optional “focus tools panel” command that also scrolls tools into view if needed
 
 ## Next ChatGPT Prompt
-We implemented tool selection navigation:
-- Filter tools by search label (existing)
-- Up/Down moves selection within the filtered list (wrap)
-- Enter runs the selected tool
-- Selected button is highlighted using system highlight border
+We added global tools hotkeys in Workstation v2:
+- Ctrl+F focuses Tools search
+- Esc clears search and resets tool list
+- Tab from search moves focus into the tools grid
+- Up/Down/Enter selection navigation works even when focus is on tool buttons
 
-Next, add a global tools hotkey mode:
-1) Ctrl+F focuses the Tools search box.
-2) Esc clears the search box and resets to showing all tools.
-3) When Tools search has focus, Tab should move focus to the tools grid while keeping selection navigation active.
+Next, add a compact shortcut hint UI:
+1) Add a small hint text under the Tools search box showing the hotkeys.
+2) Add a toggle (checkbox) to show/hide the hint; persist it in WorkstationState.json.
 Update Handoff.md accordingly.
