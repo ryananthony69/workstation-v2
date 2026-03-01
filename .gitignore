@@ -20,3 +20,4 @@ credentials.*
 *.pfx
 *.pem
 *.crt
+*_wpftmp.csproj

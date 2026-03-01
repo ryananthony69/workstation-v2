@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using WorkstationV2.Models;
 using WorkstationV2.Services;
 
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
     private ToolsConfig _tools = new();
 
     private CancellationTokenSource? _saveCts;
+    private CancellationTokenSource? _toastCts;
 
     public MainWindow()
     {
@@ -51,6 +53,10 @@ public partial class MainWindow : Window
         );
 
         BuildToolsGrid();
+
+        // Ensure window receives key events even when focus is inside content
+        Focusable = true;
+        Keyboard.Focus(this);
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -89,6 +95,8 @@ public partial class MainWindow : Window
 
         try
         {
+            ShowToast($"Tool: {tool.Label ?? type}");
+
             switch (type)
             {
                 case "OpenUrl":
@@ -149,12 +157,14 @@ public partial class MainWindow : Window
                     break;
                 }
                 default:
+                    ShowToast($"Unknown tool type: {type}");
                     break;
             }
         }
         catch (Exception ex)
         {
             ScriptRunner.SetOutput($"Tool error: {ex.Message}");
+            ShowToast("Tool failed (see output)");
         }
     }
 
@@ -201,12 +211,10 @@ public partial class MainWindow : Window
 
     private void ApplyLayoutFromState()
     {
-        // Sidebar pixel width
         var sidebar = _state.SidebarWidth <= 0 ? 380 : _state.SidebarWidth;
         sidebar = Clamp(sidebar, 280, 1200);
         SidebarCol.Width = new GridLength(sidebar, GridUnitType.Pixel);
 
-        // Left grid ratios as star weights
         var colRatio = _state.LeftColumnRatio;
         if (colRatio <= 0 || colRatio >= 1) colRatio = 0.5;
         colRatio = Clamp(colRatio, 0.15, 0.85);
@@ -274,5 +282,97 @@ public partial class MainWindow : Window
     private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
     {
         ScheduleSave();
+    }
+
+    private void ShowToast(string message, int ms = 1500)
+    {
+        try
+        {
+            _toastCts?.Cancel();
+            _toastCts = new CancellationTokenSource();
+            var token = _toastCts.Token;
+
+            ToastText.Text = message ?? string.Empty;
+            ToastBorder.Visibility = Visibility.Visible;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(ms, token);
+                    if (token.IsCancellationRequested) return;
+
+                    Dispatcher.Invoke(() =>
+                    {
+                        ToastBorder.Visibility = Visibility.Collapsed;
+                        ToastText.Text = string.Empty;
+                    });
+                }
+                catch { }
+            }, token);
+        }
+        catch { }
+    }
+
+    private static bool TryGetDigitKey(Key key, out int digit)
+    {
+        digit = 0;
+
+        if (key >= Key.D0 && key <= Key.D9)
+        {
+            digit = (int)(key - Key.D0);
+            return true;
+        }
+
+        if (key >= Key.NumPad0 && key <= Key.NumPad9)
+        {
+            digit = (int)(key - Key.NumPad0);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void TriggerToolByIndex(int index)
+    {
+        var list = _tools.Tools ?? new List<ToolItem>();
+        if (index < 0 || index >= list.Count)
+        {
+            ShowToast($"No tool at #{index + 1}");
+            return;
+        }
+
+        ExecuteTool(list[index]);
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        try
+        {
+            var mods = Keyboard.Modifiers;
+
+            if (!TryGetDigitKey(e.Key, out var digit)) return;
+
+            // Ctrl+1/2/3: focus tiles
+            if (mods == ModifierKeys.Control)
+            {
+                if (digit == 1) { FocusTile(1); ShowToast("Focus Tile 1"); e.Handled = true; }
+                else if (digit == 2) { FocusTile(2); ShowToast("Focus Tile 2"); e.Handled = true; }
+                else if (digit == 3) { FocusTile(3); ShowToast("Focus Tile 3"); e.Handled = true; }
+                return;
+            }
+
+            // Ctrl+Shift+1..9: run tool buttons 1..9
+            if (mods == (ModifierKeys.Control | ModifierKeys.Shift))
+            {
+                if (digit >= 1 && digit <= 9)
+                {
+                    TriggerToolByIndex(digit - 1);
+                    e.Handled = true;
+                }
+                return;
+            }
+        }
+        catch { }
     }
 }
