@@ -1,38 +1,30 @@
 # Handoff
 
 ## What changed
-- Added a compact shortcut hint line under the Tools search box:
-  - Ctrl+F focus, Esc clear, Up/Down select, Enter run, Tab to tools
-- Added a “Show shortcut hints” checkbox to show/hide the hint
-- Persisted the checkbox value in WorkstationState.json as ToolsHintVisible (nullable migration; defaults to true if missing)
-- Updated DefaultWorkstationState.json to seed ToolsHintVisible=true
+- Added Run-Dev.ps1 so you can run the app from any PowerShell working directory using an absolute project path
+- Updated README.md (if present) to mention Run-Dev.ps1
+- Maintained required .gitignore secret exclusions
 
 ## How to run/use
-- dotnet run --project .\WorkstationV2\WorkstationV2.csproj
-- Tools panel:
-  - Use “Show shortcut hints” checkbox to show/hide the hint line
-  - The preference persists to: %LOCALAPPDATA%\WorkstationV2\WorkstationState.json
+- From ANY PowerShell path:
+  - & "C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\Run-Dev.ps1"
+- Or explicitly:
+  - dotnet run --project "C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\WorkstationV2\WorkstationV2.csproj"
 
 ## How to test/verify
-- Launch app
-- Toggle “Show shortcut hints” off:
-  - Hint line disappears
-- Close app and relaunch:
-  - Hint visibility remains as last set
-- Delete ToolsHintVisible from %LOCALAPPDATA%\WorkstationV2\WorkstationState.json and relaunch:
-  - Hint defaults to visible (migration behavior)
+- Open PowerShell in any folder (e.g., C:\Windows\System32)
+- Run:
+  - & "C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\Run-Dev.ps1"
+- App should build + launch without the MSB1009 path error.
 
 ## Known issues
-- None specific; this is a UI-only addition.
+- None specific; previous error was caused by running dotnet with a relative project path from the wrong working directory.
 
 ## Next steps
-- Add a small “?” icon that shows a short tooltip/cheatsheet (all shortcuts) without taking layout space
-- Add an option to hide the Tools error banner when there are only minor validation warnings
+- Add Run-Build.ps1 (optional) for dotnet build / dotnet publish shortcuts
+- Add a Start-Workstation.ps1 launcher that opens the app and optionally primes Tools/State paths
 
 ## Next ChatGPT Prompt
-We added a Tools shortcut hint line under the search box with a “Show shortcut hints” checkbox persisted to WorkstationState.json (ToolsHintVisible).
-Next, add a tooltip cheatsheet:
-1) Add a small “?” button next to the checkbox.
-2) Clicking it shows a modal or popup listing all shortcuts (Ctrl+F, Esc, Tab, Up/Down/Enter, Ctrl+1/2/3, Ctrl+Shift+1..9).
-3) Persist whether the cheatsheet should show on first launch after updates (one-time).
-Update Handoff.md accordingly.
+We hit MSB1009 because dotnet run was executed from a directory that didn't contain WorkstationV2\WorkstationV2.csproj.
+We added Run-Dev.ps1 at repo root to run dotnet using the correct project path from anywhere.
+Next, add a Run-Publish.ps1 that publishes a Release build to .\dist\ and documents how to run the published exe.
