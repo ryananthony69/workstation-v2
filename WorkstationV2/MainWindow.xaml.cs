@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -21,6 +24,9 @@ public partial class MainWindow : Window
 
     private CancellationTokenSource? _saveCts;
     private CancellationTokenSource? _toastCts;
+
+    private static string ToolsFilePath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkstationV2", "Tools.json");
 
     public MainWindow()
     {
@@ -53,8 +59,8 @@ public partial class MainWindow : Window
         );
 
         BuildToolsGrid();
+        ValidateToolsAndShowBanner(_tools);
 
-        // Ensure window receives key events even when focus is inside content
         Focusable = true;
         Keyboard.Focus(this);
     }
@@ -64,19 +70,76 @@ public partial class MainWindow : Window
         SaveNow();
     }
 
+    private void ReloadTools_Click(object sender, RoutedEventArgs e)
+    {
+        ReloadToolsFromDisk();
+    }
+
+    private void ReloadToolsFromDisk()
+    {
+        try
+        {
+            // Ensure a seeded Tools.json exists at least once
+            _ = _config.LoadToolsSeedIfMissing();
+
+            if (!File.Exists(ToolsFilePath))
+            {
+                HideToolsError();
+                _tools = new ToolsConfig();
+                BuildToolsGrid();
+                ShowToast("Tools.json not found");
+                return;
+            }
+
+            var json = File.ReadAllText(ToolsFilePath, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            var opts = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+            var cfg = JsonSerializer.Deserialize<ToolsConfig>(json, opts);
+            if (cfg == null)
+            {
+                ShowToolsError("Tools.json parsed as null.");
+                ShowToast("Tools reload failed");
+                return;
+            }
+
+            _tools = cfg;
+            BuildToolsGrid();
+
+            var hasIssues = ValidateToolsAndShowBanner(_tools);
+            ShowToast(hasIssues ? "Tools reloaded (with issues)" : "Tools reloaded");
+        }
+        catch (Exception ex)
+        {
+            ShowToolsError("Tools.json load failed: " + ex.Message);
+            ShowToast("Tools reload failed");
+        }
+    }
+
     private void BuildToolsGrid()
     {
         ToolsGrid.Children.Clear();
+
         var list = _tools.Tools ?? new List<ToolItem>();
         foreach (var tool in list.Take(120))
         {
+            var isValid = IsToolValid(tool, out var reason);
+
+            var label = (tool?.Label ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(label)) label = "(invalid tool)";
+
             var btn = new Button
             {
-                Content = tool.Label ?? "(tool)",
+                Content = label,
                 Margin = new Thickness(4),
                 Padding = new Thickness(8),
-                Tag = tool
+                Tag = tool,
+                IsEnabled = isValid,
+                ToolTip = isValid ? null : reason
             };
+
             btn.Click += ToolButton_Click;
             ToolsGrid.Children.Add(btn);
         }
@@ -91,6 +154,12 @@ public partial class MainWindow : Window
 
     private void ExecuteTool(ToolItem tool)
     {
+        if (!IsToolValid(tool, out var reason))
+        {
+            ShowToast("Invalid tool: " + reason);
+            return;
+        }
+
         var type = (tool.Type ?? string.Empty).Trim();
 
         try
@@ -314,6 +383,129 @@ public partial class MainWindow : Window
         catch { }
     }
 
+    private void ShowToolsError(string message)
+    {
+        ToolsErrorText.Text = message ?? string.Empty;
+        ToolsErrorBanner.Visibility = Visibility.Visible;
+    }
+
+    private void HideToolsError()
+    {
+        ToolsErrorText.Text = string.Empty;
+        ToolsErrorBanner.Visibility = Visibility.Collapsed;
+    }
+
+    private static bool IsToolValid(ToolItem? tool, out string reason)
+    {
+        reason = "Unknown validation error.";
+
+        if (tool == null)
+        {
+            reason = "Tool is null.";
+            return false;
+        }
+
+        var label = (tool.Label ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            reason = "Missing required field: label.";
+            return false;
+        }
+
+        var type = (tool.Type ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(type))
+        {
+            reason = "Missing required field: type.";
+            return false;
+        }
+
+        // Minimal required payload validation for known types
+        switch (type)
+        {
+            case "OpenUrl":
+            {
+                var url = tool.Payload?.GetValueOrDefault("url") ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    reason = "OpenUrl requires payload.url.";
+                    return false;
+                }
+                break;
+            }
+            case "LaunchApp":
+            {
+                var exe = tool.Payload?.GetValueOrDefault("exe") ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(exe))
+                {
+                    reason = "LaunchApp requires payload.exe.";
+                    return false;
+                }
+                break;
+            }
+            case "RunScript":
+            {
+                var script = tool.Payload?.GetValueOrDefault("script") ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(script))
+                {
+                    reason = "RunScript requires payload.script.";
+                    return false;
+                }
+                break;
+            }
+            case "FocusTile":
+            {
+                var t = tool.TileTarget ?? 0;
+                if (t < 1 || t > 3)
+                {
+                    reason = "FocusTile requires tileTarget 1..3.";
+                    return false;
+                }
+                break;
+            }
+            case "OpenCanvas":
+            case "OpenVault":
+            case "FocusObsidian":
+                break;
+            default:
+                reason = $"Unknown tool type: {type}";
+                return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
+    private bool ValidateToolsAndShowBanner(ToolsConfig cfg)
+    {
+        var list = cfg.Tools ?? new List<ToolItem>();
+        var issues = new List<string>();
+
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (!IsToolValid(list[i], out var reason))
+            {
+                var label = (list[i]?.Label ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(label)) label = "(missing label)";
+                issues.Add($"#{i + 1} '{label}': {reason}");
+            }
+        }
+
+        if (issues.Count == 0)
+        {
+            HideToolsError();
+            return false;
+        }
+
+        var shown = issues.Take(6).ToList();
+        var more = issues.Count - shown.Count;
+
+        var msg = "Tools.json validation issues:\n" + string.Join("\n", shown);
+        if (more > 0) msg += $"\n(+{more} more)";
+
+        ShowToolsError(msg);
+        return true;
+    }
+
     private static bool TryGetDigitKey(Key key, out int digit)
     {
         digit = 0;
@@ -362,7 +554,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Ctrl+Shift+1..9: run tool buttons 1..9
+            // Ctrl+Shift+1..9: run tool buttons 1..9 from Tools.json order
             if (mods == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 if (digit >= 1 && digit <= 9)

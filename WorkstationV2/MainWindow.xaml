@@ -78,9 +78,28 @@
                 </Grid.RowDefinitions>
 
                 <GroupBox Grid.Row="0" Header="Tools" Margin="10" Foreground="White" BorderBrush="#2A2A2A">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <UniformGrid x:Name="ToolsGrid" Columns="3" Margin="6"/>
-                    </ScrollViewer>
+                    <StackPanel Margin="6">
+                        <Border x:Name="ToolsErrorBanner"
+                                Background="#3A1A1A"
+                                BorderBrush="#AA3333"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="8"
+                                Margin="0,0,0,8"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="ToolsErrorText" Foreground="White" FontSize="12" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <Button x:Name="ReloadToolsButton"
+                                Content="Reload Tools"
+                                Padding="10,4"
+                                Margin="0,0,0,8"
+                                Click="ReloadTools_Click"/>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <UniformGrid x:Name="ToolsGrid" Columns="3"/>
+                        </ScrollViewer>
+                    </StackPanel>
                 </GroupBox>
 
                 <GroupBox Grid.Row="1" Header="Script Runner" Margin="10" Foreground="White" BorderBrush="#2A2A2A">
