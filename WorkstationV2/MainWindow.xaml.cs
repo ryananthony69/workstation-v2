@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using WorkstationV2.Models;
 using WorkstationV2.Services;
 
@@ -26,6 +27,11 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _toastCts;
 
     private string _toolsSearch = string.Empty;
+
+    // Selection state for filtered tools
+    private int _selectedToolIndex = -1;
+    private List<ToolItem> _filteredTools = new();
+    private readonly List<Button> _toolButtons = new();
 
     private static string ToolsDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkstationV2");
@@ -123,25 +129,82 @@ public partial class MainWindow : Window
     private void ToolsSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
         _toolsSearch = (ToolsSearchBox.Text ?? string.Empty).Trim();
+
+        // Reset selection to first item on new search text.
+        _selectedToolIndex = -1;
+
         BuildToolsGrid();
     }
 
     private void ToolsSearch_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter) return;
-
-        var filtered = GetFilteredTools();
-        if (filtered.Count == 1)
+        if (e.Key == Key.Down)
         {
-            ExecuteTool(filtered[0]);
+            MoveToolSelection(+1);
             e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Up)
+        {
+            MoveToolSelection(-1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            RunSelectedOrSingleMatch();
+            e.Handled = true;
+            return;
+        }
+    }
+
+    private void MoveToolSelection(int delta)
+    {
+        if (_filteredTools.Count == 0)
+        {
+            _selectedToolIndex = -1;
+            ApplyToolSelectionVisuals();
+            return;
+        }
+
+        if (_selectedToolIndex < 0 || _selectedToolIndex >= _filteredTools.Count)
+        {
+            _selectedToolIndex = 0;
+            ApplyToolSelectionVisuals();
+            return;
+        }
+
+        var n = _filteredTools.Count;
+        var next = _selectedToolIndex + delta;
+
+        // Wrap
+        if (next < 0) next = n - 1;
+        if (next >= n) next = 0;
+
+        _selectedToolIndex = next;
+        ApplyToolSelectionVisuals();
+    }
+
+    private void RunSelectedOrSingleMatch()
+    {
+        if (_filteredTools.Count == 1)
+        {
+            ExecuteTool(_filteredTools[0]);
+            return;
+        }
+
+        if (_selectedToolIndex >= 0 && _selectedToolIndex < _filteredTools.Count)
+        {
+            ExecuteTool(_filteredTools[_selectedToolIndex]);
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(_toolsSearch))
         {
-            ShowToast(filtered.Count == 0 ? "No matching tools" : "More than one match");
-            e.Handled = true;
+            if (_filteredTools.Count == 0) ShowToast("No matching tools");
+            else ShowToast("Use Up/Down to select");
         }
     }
 
@@ -179,7 +242,7 @@ public partial class MainWindow : Window
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 TextWrapping = TextWrapping.NoWrap,
-                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                FontFamily = new FontFamily("Consolas"),
                 Margin = new Thickness(0, 10, 0, 10)
             };
             Grid.SetRow(box, 1);
@@ -187,7 +250,7 @@ public partial class MainWindow : Window
 
             var error = new TextBlock
             {
-                Foreground = System.Windows.Media.Brushes.OrangeRed,
+                Foreground = Brushes.OrangeRed,
                 TextWrapping = TextWrapping.Wrap,
                 Visibility = Visibility.Collapsed,
                 Margin = new Thickness(0, 0, 0, 10)
@@ -246,6 +309,8 @@ public partial class MainWindow : Window
                     File.WriteAllText(ToolsFilePath, SerializeTools(cfg), new UTF8Encoding(false));
 
                     _tools = cfg;
+                    _selectedToolIndex = -1;
+
                     BuildToolsGrid();
                     ValidateToolsAndShowBanner(_tools);
 
@@ -319,6 +384,7 @@ public partial class MainWindow : Window
             {
                 HideToolsError();
                 _tools = new ToolsConfig();
+                _selectedToolIndex = -1;
                 BuildToolsGrid();
                 ShowToast("Tools.json not found");
                 return;
@@ -337,6 +403,7 @@ public partial class MainWindow : Window
 
             cfg.Tools ??= new List<ToolItem>();
             _tools = cfg;
+            _selectedToolIndex = -1;
 
             BuildToolsGrid();
             var hasIssues = ValidateToolsAndShowBanner(_tools);
@@ -364,10 +431,24 @@ public partial class MainWindow : Window
     private void BuildToolsGrid()
     {
         ToolsGrid.Children.Clear();
+        _toolButtons.Clear();
 
-        var filtered = GetFilteredTools();
+        _filteredTools = GetFilteredTools();
 
-        foreach (var tool in filtered.Take(120))
+        // Maintain selection index within range; if no selection yet, default to first item when filtering
+        if (_filteredTools.Count == 0)
+        {
+            _selectedToolIndex = -1;
+        }
+        else
+        {
+            if (_selectedToolIndex < 0 || _selectedToolIndex >= _filteredTools.Count)
+            {
+                _selectedToolIndex = 0;
+            }
+        }
+
+        foreach (var tool in _filteredTools.Take(120))
         {
             var isValid = IsToolValid(tool, out var reason);
 
@@ -386,12 +467,30 @@ public partial class MainWindow : Window
 
             btn.Click += ToolButton_Click;
             ToolsGrid.Children.Add(btn);
+            _toolButtons.Add(btn);
         }
 
-        // Optional hint when filtering yields 0
-        if (!string.IsNullOrWhiteSpace(_toolsSearch) && filtered.Count == 0)
+        ApplyToolSelectionVisuals();
+    }
+
+    private void ApplyToolSelectionVisuals()
+    {
+        // Highlight selected tool button using system highlight brush (no custom theme dependency).
+        for (var i = 0; i < _toolButtons.Count; i++)
         {
-            ShowToast("No matching tools");
+            var b = _toolButtons[i];
+            if (i == _selectedToolIndex)
+            {
+                b.BorderBrush = SystemColors.HighlightBrush;
+                b.BorderThickness = new Thickness(2);
+                b.FontWeight = FontWeights.SemiBold;
+            }
+            else
+            {
+                b.ClearValue(Button.BorderBrushProperty);
+                b.BorderThickness = new Thickness(1);
+                b.FontWeight = FontWeights.Normal;
+            }
         }
     }
 
@@ -399,6 +498,19 @@ public partial class MainWindow : Window
     {
         if (sender is not Button b) return;
         if (b.Tag is not ToolItem tool) return;
+
+        // Update selection to clicked tool (within filtered list)
+        try
+        {
+            var idx = _filteredTools.IndexOf(tool);
+            if (idx >= 0)
+            {
+                _selectedToolIndex = idx;
+                ApplyToolSelectionVisuals();
+            }
+        }
+        catch { }
+
         ExecuteTool(tool);
     }
 
