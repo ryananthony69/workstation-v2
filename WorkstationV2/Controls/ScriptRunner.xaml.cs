@@ -1,10 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Management.Automation;
 
 namespace WorkstationV2.Controls;
 
@@ -51,32 +51,7 @@ public partial class ScriptRunner : UserControl
 
         try
         {
-            var output = await Task.Run(() =>
-            {
-                var sb = new StringBuilder();
-                using var ps = PowerShell.Create();
-                ps.AddScript(script);
-
-                var results = ps.Invoke();
-
-                foreach (var r in results)
-                {
-                    if (r != null) sb.AppendLine(r.ToString());
-                }
-
-                if (ps.Streams.Error.Count > 0)
-                {
-                    sb.AppendLine();
-                    sb.AppendLine("ERRORS:");
-                    foreach (var err in ps.Streams.Error)
-                    {
-                        sb.AppendLine(err.ToString());
-                    }
-                }
-
-                return sb.ToString().TrimEnd();
-            });
-
+            var output = await Task.Run(() => RunPowerShell(script));
             OutputBox.Text = output;
             TryCopy(output);
             StatusText.Text = "Done (output copied).";
@@ -93,14 +68,51 @@ public partial class ScriptRunner : UserControl
         }
     }
 
-    private void TryCopy(string text)
+    private static string RunPowerShell(string script)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            Arguments = "-NoProfile -ExecutionPolicy Bypass -Command -",
+            UseShellExecute = false,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+
+        using var p = new Process { StartInfo = psi };
+        p.Start();
+
+        using (var sw = p.StandardInput)
+        {
+            sw.Write(script);
+            sw.WriteLine();
+        }
+
+        var stdout = p.StandardOutput.ReadToEnd();
+        var stderr = p.StandardError.ReadToEnd();
+        p.WaitForExit();
+
+        var sb = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(stdout)) sb.AppendLine(stdout.TrimEnd());
+        if (!string.IsNullOrWhiteSpace(stderr))
+        {
+            if (sb.Length > 0) sb.AppendLine();
+            sb.AppendLine("ERRORS:");
+            sb.AppendLine(stderr.TrimEnd());
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static void TryCopy(string text)
     {
         try
         {
-            if (!string.IsNullOrEmpty(text))
-            {
-                Clipboard.SetText(text);
-            }
+            if (!string.IsNullOrEmpty(text)) Clipboard.SetText(text);
         }
         catch { }
     }

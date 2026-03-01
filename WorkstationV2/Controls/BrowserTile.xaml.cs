@@ -1,92 +1,92 @@
-using Microsoft.Web.WebView2.Core;
 using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Microsoft.Web.WebView2.Core;
 
 namespace WorkstationV2.Controls;
 
 public partial class BrowserTile : UserControl
 {
-    public int TileId { get; set; }
+    public int TileId { get; set; } = 1;
 
     private Action<string>? _onUrlChanged;
     private Action? _onFocused;
-    private bool _isInitialized;
 
     public BrowserTile()
     {
         InitializeComponent();
         Loaded += OnLoaded;
-        GotFocus += (_, _) => _onFocused?.Invoke();
     }
 
     public void Initialize(string initialUrl, Action<string> onUrlChanged, Action onFocused)
     {
         _onUrlChanged = onUrlChanged;
         _onFocused = onFocused;
+
         UrlBox.Text = initialUrl ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(UrlBox.Text))
+        {
+            Navigate(UrlBox.Text);
+        }
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (_isInitialized) return;
-        _isInitialized = true;
-
         try
         {
-            await Web.EnsureCoreWebView2Async();
-            Web.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
-
-            var url = (UrlBox.Text ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(url))
+            if (Web.CoreWebView2 == null)
             {
-                Navigate(url);
+                await Web.EnsureCoreWebView2Async();
+                HookEvents();
             }
         }
         catch
         {
+            // Keep UI alive even if WebView2 fails to init.
         }
     }
 
-    private void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    private void HookEvents()
     {
         try
         {
-            var uri = Web.Source?.ToString() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(uri))
+            Web.CoreWebView2.NavigationCompleted += (_, _) =>
             {
-                UrlBox.Text = uri;
-                _onUrlChanged?.Invoke(uri);
-            }
+                try
+                {
+                    var uri = Web.Source?.ToString() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(uri))
+                    {
+                        UrlBox.Text = uri;
+                        _onUrlChanged?.Invoke(uri);
+                    }
+                }
+                catch { }
+            };
+
+            Web.GotFocus += (_, _) => _onFocused?.Invoke();
+            Web.PreviewMouseDown += (_, _) => _onFocused?.Invoke();
         }
         catch { }
     }
 
     public void Navigate(string url)
     {
+        url = (url ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(url)) return;
+
+        if (!url.Contains("://"))
+        {
+            url = "https://" + url;
+        }
+
         try
         {
-            url = (url ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(url)) return;
-
-            if (!url.Contains("://", StringComparison.OrdinalIgnoreCase))
-            {
-                url = "https://" + url;
-            }
-
             UrlBox.Text = url;
-
-            if (Web.CoreWebView2 != null)
-            {
-                Web.CoreWebView2.Navigate(url);
-            }
-            else
-            {
-                Web.Source = new Uri(url);
-            }
-
+            Web.Source = new Uri(url);
             _onUrlChanged?.Invoke(url);
+            _onFocused?.Invoke();
         }
         catch { }
     }
@@ -96,7 +96,7 @@ public partial class BrowserTile : UserControl
         try
         {
             Web.Focus();
-            Web.CoreWebView2?.Focus();
+            _onFocused?.Invoke();
         }
         catch { }
     }

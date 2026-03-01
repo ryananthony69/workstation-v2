@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
 using Microsoft.Win32;
 using WorkstationV2.Services;
 
@@ -36,22 +35,33 @@ public partial class CanvasPanel : UserControl
 
     private void BrowseVault_Click(object sender, RoutedEventArgs e)
     {
-        using var dlg = new FolderBrowserDialog
+        // WPF-only folder pick workaround:
+        // Navigate to a folder and click Open; we use DirectoryName of a dummy file.
+        var initial = (VaultBox.Text ?? string.Empty).Trim();
+        var dlg = new OpenFileDialog
         {
-            Description = "Select Obsidian Vault Folder",
-            UseDescriptionForTitle = true
+            Title = "Select Obsidian Vault Folder",
+            CheckFileExists = false,
+            CheckPathExists = true,
+            ValidateNames = false,
+            FileName = "Select Folder",
+            Filter = "Folder|*.",
+            InitialDirectory = Directory.Exists(initial) ? initial : null
         };
 
-        var result = dlg.ShowDialog();
-        if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(dlg.SelectedPath))
+        if (dlg.ShowDialog() == true)
         {
-            VaultBox.Text = dlg.SelectedPath;
+            var folder = Path.GetDirectoryName(dlg.FileName);
+            if (!string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder))
+            {
+                VaultBox.Text = folder;
+            }
         }
     }
 
     private void PickCanvas_Click(object sender, RoutedEventArgs e)
     {
-        var initial = VaultBox.Text ?? string.Empty;
+        var initial = (VaultBox.Text ?? string.Empty).Trim();
         var dlg = new OpenFileDialog
         {
             Title = "Select Canvas (.canvas)",
@@ -72,13 +82,7 @@ public partial class CanvasPanel : UserControl
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
 
         var uri = "obsidian://open?path=" + Uri.EscapeDataString(path);
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = uri,
-            UseShellExecute = true
-        });
-
+        Process.Start(new ProcessStartInfo { FileName = uri, UseShellExecute = true });
         _onDirty?.Invoke();
     }
 
@@ -87,13 +91,7 @@ public partial class CanvasPanel : UserControl
         var path = string.IsNullOrWhiteSpace(vaultPath) ? (VaultBox.Text ?? string.Empty) : vaultPath;
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return;
 
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "explorer.exe",
-            Arguments = $"\"{path}\"",
-            UseShellExecute = true
-        });
-
+        Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{path}\"", UseShellExecute = true });
         _onDirty?.Invoke();
     }
 
