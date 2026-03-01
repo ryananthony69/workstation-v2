@@ -72,8 +72,28 @@ public partial class MainWindow : Window
         BuildToolsGrid();
         ValidateToolsAndShowBanner(_tools);
 
+        ApplyToolsHintFromState();
+
         Focusable = true;
         Keyboard.Focus(this);
+    }
+
+    private void ApplyToolsHintFromState()
+    {
+        var show = _state.ToolsHintVisible ?? true;
+        _state.ToolsHintVisible = show;
+
+        ToolsHintToggle.IsChecked = show;
+        ToolsHintText.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ToolsHintToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        var show = ToolsHintToggle.IsChecked == true;
+        ToolsHintText.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+
+        _state.ToolsHintVisible = show;
+        ScheduleSave();
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -140,7 +160,6 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None)
         {
-            // Requirement: when search has focus, Tab moves focus to the tools grid while keeping selection active.
             FocusSelectedToolButton();
             e.Handled = true;
             return;
@@ -185,7 +204,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                // Ensure reset even if already empty.
                 _toolsSearch = string.Empty;
                 _selectedToolIndex = -1;
                 BuildToolsGrid();
@@ -254,7 +272,6 @@ public partial class MainWindow : Window
         var n = _filteredTools.Count;
         var next = _selectedToolIndex + delta;
 
-        // Wrap
         if (next < 0) next = n - 1;
         if (next >= n) next = 0;
 
@@ -528,7 +545,6 @@ public partial class MainWindow : Window
 
         _filteredTools = GetFilteredTools();
 
-        // Maintain selection index within range; if no selection yet, default to first item when filtering
         if (_filteredTools.Count == 0)
         {
             _selectedToolIndex = -1;
@@ -591,7 +607,6 @@ public partial class MainWindow : Window
         if (sender is not Button b) return;
         if (b.Tag is not ToolItem tool) return;
 
-        // Update selection to clicked tool (within filtered list)
         try
         {
             var idx = _filteredTools.IndexOf(tool);
@@ -997,7 +1012,6 @@ public partial class MainWindow : Window
         {
             var mods = Keyboard.Modifiers;
 
-            // Ctrl+F focuses Tools search box
             if (mods == ModifierKeys.Control && e.Key == Key.F)
             {
                 FocusToolsSearch();
@@ -1006,7 +1020,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Esc clears search box and resets
             if (e.Key == Key.Escape)
             {
                 if (IsFocusInToolsArea() || !string.IsNullOrWhiteSpace(ToolsSearchBox.Text))
@@ -1017,7 +1030,6 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Keep selection navigation active even when focus is on tool buttons
             if (IsFocusInToolsArea() && !ReferenceEquals(Keyboard.FocusedElement, ToolsSearchBox))
             {
                 if (e.Key == Key.Down)
@@ -1042,7 +1054,6 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Existing shortcuts: Ctrl+1/2/3 focus tiles
             if (!TryGetDigitKey(e.Key, out var digit)) return;
 
             if (mods == ModifierKeys.Control)
@@ -1053,7 +1064,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Existing shortcuts: Ctrl+Shift+1..9 run tools 1..9 in Tools.json order
             if (mods == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 if (digit >= 1 && digit <= 9)

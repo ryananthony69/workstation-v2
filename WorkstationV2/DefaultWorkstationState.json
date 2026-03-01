@@ -9,5 +9,6 @@
   "WindowHeight": 900,
   "SidebarWidth": 380,
   "LeftColumnRatio": 0.5,
-  "LeftRowRatio": 0.5
+  "LeftRowRatio": 0.5,
+  "ToolsHintVisible": true
 }

@@ -1,54 +1,38 @@
 # Handoff
 
 ## What changed
-- Added “global tools hotkey mode” behavior:
-  - Ctrl+F focuses the Tools search box (selects text)
-  - Esc clears the Tools search box and resets tool list to all tools
-  - When Tools search has focus, Tab moves focus into the tools grid (first selected tool button)
-- Kept selection navigation active even when focus is on tool buttons:
-  - Up/Down changes selection and moves focus to the selected tool
-  - Enter runs the selected tool
-- No changes to Tools.json schema or persistence paths
+- Added a compact shortcut hint line under the Tools search box:
+  - Ctrl+F focus, Esc clear, Up/Down select, Enter run, Tab to tools
+- Added a “Show shortcut hints” checkbox to show/hide the hint
+- Persisted the checkbox value in WorkstationState.json as ToolsHintVisible (nullable migration; defaults to true if missing)
+- Updated DefaultWorkstationState.json to seed ToolsHintVisible=true
 
 ## How to run/use
 - dotnet run --project .\WorkstationV2\WorkstationV2.csproj
-- Tools workflow:
-  - Ctrl+F = focus Tools search
-  - Type to filter tools by label
-  - Up/Down = change selection (works in search box and on tool buttons)
-  - Enter = run selected tool (or the only match)
-  - Tab (from search box) = move focus into tool buttons
-  - Esc = clear search and reset to all tools
-- Existing shortcuts remain:
-  - Ctrl+1/2/3 = focus tiles
-  - Ctrl+Shift+1..9 = run tools #1..#9 (Tools.json order)
+- Tools panel:
+  - Use “Show shortcut hints” checkbox to show/hide the hint line
+  - The preference persists to: %LOCALAPPDATA%\WorkstationV2\WorkstationState.json
 
 ## How to test/verify
 - Launch app
-- Press Ctrl+F and confirm search box is focused and selected
-- Type a search query, then:
-  - Press Tab: focus moves to a tool button and selection stays highlighted
-  - Press Up/Down: selection moves and focus follows
-  - Press Enter: selected tool runs
-- Press Esc:
-  - Search clears and all tools are shown again
-  - Search box is focused
+- Toggle “Show shortcut hints” off:
+  - Hint line disappears
+- Close app and relaunch:
+  - Hint visibility remains as last set
+- Delete ToolsHintVisible from %LOCALAPPDATA%\WorkstationV2\WorkstationState.json and relaunch:
+  - Hint defaults to visible (migration behavior)
 
 ## Known issues
-- If a WebView2 tile is capturing certain key combos in rare cases, PreviewKeyDown usually still handles Ctrl+F/Esc but behavior may vary by focus.
+- None specific; this is a UI-only addition.
 
 ## Next steps
-- Add a small UI hint line under the search box: “Ctrl+F focus, Esc clear, Up/Down select, Enter run”
-- Add optional “focus tools panel” command that also scrolls tools into view if needed
+- Add a small “?” icon that shows a short tooltip/cheatsheet (all shortcuts) without taking layout space
+- Add an option to hide the Tools error banner when there are only minor validation warnings
 
 ## Next ChatGPT Prompt
-We added global tools hotkeys in Workstation v2:
-- Ctrl+F focuses Tools search
-- Esc clears search and resets tool list
-- Tab from search moves focus into the tools grid
-- Up/Down/Enter selection navigation works even when focus is on tool buttons
-
-Next, add a compact shortcut hint UI:
-1) Add a small hint text under the Tools search box showing the hotkeys.
-2) Add a toggle (checkbox) to show/hide the hint; persist it in WorkstationState.json.
+We added a Tools shortcut hint line under the search box with a “Show shortcut hints” checkbox persisted to WorkstationState.json (ToolsHintVisible).
+Next, add a tooltip cheatsheet:
+1) Add a small “?” button next to the checkbox.
+2) Clicking it shows a modal or popup listing all shortcuts (Ctrl+F, Esc, Tab, Up/Down/Enter, Ctrl+1/2/3, Ctrl+Shift+1..9).
+3) Persist whether the cheatsheet should show on first launch after updates (one-time).
 Update Handoff.md accordingly.

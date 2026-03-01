@@ -29,7 +29,6 @@
             <controls:BrowserTile x:Name="Tile3" Grid.Row="2" Grid.Column="0" TileId="3" />
             <controls:CanvasPanel x:Name="CanvasPanel" Grid.Row="2" Grid.Column="2" />
 
-            <!-- Vertical splitter between left/right columns -->
             <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
                           Width="6"
                           HorizontalAlignment="Stretch"
@@ -39,7 +38,6 @@
                           DragCompleted="Splitter_DragCompleted"
                           Background="#2A2A2A" />
 
-            <!-- Horizontal splitter between top/bottom rows -->
             <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
                           Height="6"
                           HorizontalAlignment="Stretch"
@@ -50,7 +48,6 @@
                           Background="#2A2A2A" />
         </Grid>
 
-        <!-- Sidebar splitter -->
         <GridSplitter Grid.Column="1"
                       Width="6"
                       HorizontalAlignment="Stretch"
@@ -99,6 +96,20 @@
                                      KeyDown="ToolsSearch_KeyDown"/>
                         </DockPanel>
 
+                        <StackPanel Margin="0,0,0,8">
+                            <CheckBox x:Name="ToolsHintToggle"
+                                      Content="Show shortcut hints"
+                                      IsChecked="True"
+                                      Checked="ToolsHintToggle_Changed"
+                                      Unchecked="ToolsHintToggle_Changed"/>
+                            <TextBlock x:Name="ToolsHintText"
+                                       Margin="0,4,0,0"
+                                       FontSize="11"
+                                       Foreground="White"
+                                       Opacity="0.8"
+                                       Text="Ctrl+F focus  •  Esc clear  •  Up/Down select  •  Enter run  •  Tab to tools" />
+                        </StackPanel>
+
                         <WrapPanel Margin="0,0,0,8">
                             <Button x:Name="ReloadToolsButton" Content="Reload" Padding="10,4" Margin="0,0,8,0" Click="ReloadTools_Click"/>
                             <Button x:Name="OpenToolsButton" Content="Open Tools.json" Padding="10,4" Margin="0,0,8,0" Click="OpenTools_Click"/>
@@ -116,7 +127,6 @@
                     <controls:ScriptRunner x:Name="ScriptRunner"/>
                 </GroupBox>
 
-                <!-- Toast overlay -->
                 <Border x:Name="ToastBorder"
                         Grid.RowSpan="2"
                         HorizontalAlignment="Right"

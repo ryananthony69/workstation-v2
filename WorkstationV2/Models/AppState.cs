@@ -18,4 +18,8 @@ public class AppState
     public double SidebarWidth { get; set; } = 380;
     public double LeftColumnRatio { get; set; } = 0.5; // left column / (left + right)
     public double LeftRowRatio { get; set; } = 0.5;    // top row / (top + bottom)
+
+    // UI preferences
+    // Nullable for migration: if missing in older state files, treat as true.
+    public bool? ToolsHintVisible { get; set; } = null;
 }
