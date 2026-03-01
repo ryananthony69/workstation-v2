@@ -6,5 +6,8 @@
   "CanvasPath": "",
   "LastFocusedTile": 1,
   "WindowWidth": 1600,
-  "WindowHeight": 900
+  "WindowHeight": 900,
+  "SidebarWidth": 380,
+  "LeftColumnRatio": 0.5,
+  "LeftRowRatio": 0.5
 }

@@ -13,4 +13,9 @@ public class AppState
 
     public int WindowWidth { get; set; } = 1600;
     public int WindowHeight { get; set; } = 900;
+
+    // Layout persistence
+    public double SidebarWidth { get; set; } = 380;
+    public double LeftColumnRatio { get; set; } = 0.5; // left column / (left + right)
+    public double LeftRowRatio { get; set; } = 0.5;    // top row / (top + bottom)
 }

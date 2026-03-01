@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using WorkstationV2.Models;
 using WorkstationV2.Services;
 
@@ -30,6 +31,8 @@ public partial class MainWindow : Window
     {
         _state = _config.LoadStateSeedIfMissing();
         _tools = _config.LoadToolsSeedIfMissing();
+
+        ApplyLayoutFromState();
 
         Tile1.Initialize(_state.Tile1Url ?? string.Empty, url => OnTileUrlChanged(1, url), () => SetLastFocused(1));
         Tile2.Initialize(_state.Tile2Url ?? string.Empty, url => OnTileUrlChanged(2, url), () => SetLastFocused(2));
@@ -193,6 +196,53 @@ public partial class MainWindow : Window
         ScheduleSave();
     }
 
+    private static double Clamp(double v, double min, double max)
+        => v < min ? min : (v > max ? max : v);
+
+    private void ApplyLayoutFromState()
+    {
+        // Sidebar pixel width
+        var sidebar = _state.SidebarWidth <= 0 ? 380 : _state.SidebarWidth;
+        sidebar = Clamp(sidebar, 280, 1200);
+        SidebarCol.Width = new GridLength(sidebar, GridUnitType.Pixel);
+
+        // Left grid ratios as star weights
+        var colRatio = _state.LeftColumnRatio;
+        if (colRatio <= 0 || colRatio >= 1) colRatio = 0.5;
+        colRatio = Clamp(colRatio, 0.15, 0.85);
+
+        var rowRatio = _state.LeftRowRatio;
+        if (rowRatio <= 0 || rowRatio >= 1) rowRatio = 0.5;
+        rowRatio = Clamp(rowRatio, 0.15, 0.85);
+
+        LeftColLeft.Width = new GridLength(Math.Max(1, colRatio * 100.0), GridUnitType.Star);
+        LeftColRight.Width = new GridLength(Math.Max(1, (1.0 - colRatio) * 100.0), GridUnitType.Star);
+
+        LeftRowTop.Height = new GridLength(Math.Max(1, rowRatio * 100.0), GridUnitType.Star);
+        LeftRowBottom.Height = new GridLength(Math.Max(1, (1.0 - rowRatio) * 100.0), GridUnitType.Star);
+    }
+
+    private void CaptureLayoutToState()
+    {
+        try
+        {
+            _state.SidebarWidth = SidebarCol.ActualWidth;
+
+            var colTotal = LeftColLeft.ActualWidth + LeftColRight.ActualWidth;
+            if (colTotal > 50)
+            {
+                _state.LeftColumnRatio = Clamp(LeftColLeft.ActualWidth / colTotal, 0.05, 0.95);
+            }
+
+            var rowTotal = LeftRowTop.ActualHeight + LeftRowBottom.ActualHeight;
+            if (rowTotal > 50)
+            {
+                _state.LeftRowRatio = Clamp(LeftRowTop.ActualHeight / rowTotal, 0.05, 0.95);
+            }
+        }
+        catch { }
+    }
+
     private void ScheduleSave()
     {
         _saveCts?.Cancel();
@@ -213,8 +263,16 @@ public partial class MainWindow : Window
 
     private void SaveNow()
     {
+        CaptureLayoutToState();
+
         _state.WindowWidth = (int)Math.Max(0, ActualWidth);
         _state.WindowHeight = (int)Math.Max(0, ActualHeight);
+
         _config.SaveState(_state);
+    }
+
+    private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        ScheduleSave();
     }
 }

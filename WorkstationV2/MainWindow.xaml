@@ -6,28 +6,61 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="6" />
+            <ColumnDefinition x:Name="SidebarCol" Width="380" MinWidth="280" />
         </Grid.ColumnDefinitions>
 
-        <!-- Left: 2x2 grid -->
-        <Grid Grid.Column="0">
+        <!-- Left: 2x2 grid with splitters -->
+        <Grid Grid.Column="0" x:Name="LeftGrid">
             <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="*" />
+                <RowDefinition x:Name="LeftRowTop" Height="*" />
+                <RowDefinition Height="6" />
+                <RowDefinition x:Name="LeftRowBottom" Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="LeftColLeft" Width="*" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition x:Name="LeftColRight" Width="*" />
             </Grid.ColumnDefinitions>
 
             <controls:BrowserTile x:Name="Tile1" Grid.Row="0" Grid.Column="0" TileId="1" />
-            <controls:BrowserTile x:Name="Tile2" Grid.Row="0" Grid.Column="1" TileId="2" />
-            <controls:BrowserTile x:Name="Tile3" Grid.Row="1" Grid.Column="0" TileId="3" />
-            <controls:CanvasPanel x:Name="CanvasPanel" Grid.Row="1" Grid.Column="1" />
+            <controls:BrowserTile x:Name="Tile2" Grid.Row="0" Grid.Column="2" TileId="2" />
+            <controls:BrowserTile x:Name="Tile3" Grid.Row="2" Grid.Column="0" TileId="3" />
+            <controls:CanvasPanel x:Name="CanvasPanel" Grid.Row="2" Grid.Column="2" />
+
+            <!-- Vertical splitter between left/right columns -->
+            <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
+                          Width="6"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          DragCompleted="Splitter_DragCompleted"
+                          Background="#2A2A2A" />
+
+            <!-- Horizontal splitter between top/bottom rows -->
+            <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                          Height="6"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Rows"
+                          ResizeBehavior="PreviousAndNext"
+                          DragCompleted="Splitter_DragCompleted"
+                          Background="#2A2A2A" />
         </Grid>
 
+        <!-- Sidebar splitter -->
+        <GridSplitter Grid.Column="1"
+                      Width="6"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ResizeDirection="Columns"
+                      ResizeBehavior="PreviousAndNext"
+                      DragCompleted="Splitter_DragCompleted"
+                      Background="#2A2A2A" />
+
         <!-- Right sidebar -->
-        <Grid Grid.Column="1" Background="#111111">
+        <Grid Grid.Column="2" Background="#111111">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
