@@ -90,6 +90,15 @@
                             <TextBlock x:Name="ToolsErrorText" Foreground="White" FontSize="12" TextWrapping="Wrap"/>
                         </Border>
 
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox x:Name="ToolsSearchBox"
+                                     MinHeight="26"
+                                     VerticalContentAlignment="Center"
+                                     TextChanged="ToolsSearch_TextChanged"
+                                     KeyDown="ToolsSearch_KeyDown"/>
+                        </DockPanel>
+
                         <WrapPanel Margin="0,0,0,8">
                             <Button x:Name="ReloadToolsButton" Content="Reload" Padding="10,4" Margin="0,0,8,0" Click="ReloadTools_Click"/>
                             <Button x:Name="OpenToolsButton" Content="Open Tools.json" Padding="10,4" Margin="0,0,8,0" Click="OpenTools_Click"/>

@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _saveCts;
     private CancellationTokenSource? _toastCts;
 
+    private string _toolsSearch = string.Empty;
+
     private static string ToolsDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkstationV2");
 
@@ -60,6 +62,7 @@ public partial class MainWindow : Window
             () => ScheduleSave()
         );
 
+        _toolsSearch = (ToolsSearchBox.Text ?? string.Empty).Trim();
         BuildToolsGrid();
         ValidateToolsAndShowBanner(_tools);
 
@@ -72,10 +75,7 @@ public partial class MainWindow : Window
         SaveNow();
     }
 
-    private void ReloadTools_Click(object sender, RoutedEventArgs e)
-    {
-        ReloadToolsFromDisk();
-    }
+    private void ReloadTools_Click(object sender, RoutedEventArgs e) => ReloadToolsFromDisk();
 
     private void OpenTools_Click(object sender, RoutedEventArgs e)
     {
@@ -86,11 +86,9 @@ public partial class MainWindow : Window
 
             if (!File.Exists(ToolsFilePath))
             {
-                // Seed may have created it; if not, create minimal file.
                 File.WriteAllText(ToolsFilePath, "{\n  \"tools\": []\n}\n", new UTF8Encoding(false));
             }
 
-            // Avoid opening in a browser; open in Notepad explicitly.
             Process.Start(new ProcessStartInfo
             {
                 FileName = "notepad.exe",
@@ -120,9 +118,31 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ImportTools_Click(object sender, RoutedEventArgs e)
+    private void ImportTools_Click(object sender, RoutedEventArgs e) => ShowImportToolsDialog();
+
+    private void ToolsSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
-        ShowImportToolsDialog();
+        _toolsSearch = (ToolsSearchBox.Text ?? string.Empty).Trim();
+        BuildToolsGrid();
+    }
+
+    private void ToolsSearch_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+
+        var filtered = GetFilteredTools();
+        if (filtered.Count == 1)
+        {
+            ExecuteTool(filtered[0]);
+            e.Handled = true;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_toolsSearch))
+        {
+            ShowToast(filtered.Count == 0 ? "No matching tools" : "More than one match");
+            e.Handled = true;
+        }
     }
 
     private void ShowImportToolsDialog()
@@ -191,7 +211,6 @@ public partial class MainWindow : Window
 
             dlg.Content = root;
 
-            // Prefill: clipboard JSON if present; else current tools JSON.
             try
             {
                 var clip = Clipboard.GetText();
@@ -270,7 +289,6 @@ public partial class MainWindow : Window
                 return (false, null, "JSON parsed as null.");
             }
 
-            // Root must contain tools array (empty allowed)
             cfg.Tools ??= new List<ToolItem>();
 
             var issues = GetToolIssues(cfg);
@@ -331,12 +349,25 @@ public partial class MainWindow : Window
         }
     }
 
+    private List<ToolItem> GetFilteredTools()
+    {
+        var all = _tools.Tools ?? new List<ToolItem>();
+        var q = (_toolsSearch ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(q)) return all;
+
+        return all
+            .Where(t => ((t?.Label ?? string.Empty).IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0))
+            .ToList();
+    }
+
     private void BuildToolsGrid()
     {
         ToolsGrid.Children.Clear();
 
-        var list = _tools.Tools ?? new List<ToolItem>();
-        foreach (var tool in list.Take(120))
+        var filtered = GetFilteredTools();
+
+        foreach (var tool in filtered.Take(120))
         {
             var isValid = IsToolValid(tool, out var reason);
 
@@ -355,6 +386,12 @@ public partial class MainWindow : Window
 
             btn.Click += ToolButton_Click;
             ToolsGrid.Children.Add(btn);
+        }
+
+        // Optional hint when filtering yields 0
+        if (!string.IsNullOrWhiteSpace(_toolsSearch) && filtered.Count == 0)
+        {
+            ShowToast("No matching tools");
         }
     }
 
@@ -559,10 +596,7 @@ public partial class MainWindow : Window
         _config.SaveState(_state);
     }
 
-    private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
-    {
-        ScheduleSave();
-    }
+    private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e) => ScheduleSave();
 
     private void ShowToast(string message, int ms = 1500)
     {
