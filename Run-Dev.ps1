@@ -23,4 +23,13 @@ if (-not (Test-Path -LiteralPath $csproj)) {
 }
 
 & dotnet run --project $csproj --configuration $Configuration
-if ($LASTEXITCODE -ne 0) { throw "dotnet run failed ($LASTEXITCODE)" }
+$code = $LASTEXITCODE
+
+if ($code -ne 0) {
+    # Common unhandled exception exit code from .NET: 0xE0434352 == -532462766
+    if ($code -eq -532462766) {
+        $log = Join-Path $env:LOCALAPPDATA 'WorkstationV2\crash.log'
+        Write-Host "App exited with unhandled exception code ($code). Check crash log: $log"
+    }
+    throw "dotnet run failed ($code)"
+}

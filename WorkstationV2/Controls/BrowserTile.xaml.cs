@@ -2,7 +2,6 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using Microsoft.Web.WebView2.Core;
 
 namespace WorkstationV2.Controls;
 
@@ -12,6 +11,8 @@ public partial class BrowserTile : UserControl
 
     private Action<string>? _onUrlChanged;
     private Action? _onFocused;
+
+    private Microsoft.Web.WebView2.Wpf.WebView2? _web;
 
     public BrowserTile()
     {
@@ -35,38 +36,56 @@ public partial class BrowserTile : UserControl
     {
         try
         {
-            if (Web.CoreWebView2 == null)
+            if (_web == null)
             {
-                await Web.EnsureCoreWebView2Async();
-                HookEvents();
+                _web = new Microsoft.Web.WebView2.Wpf.WebView2();
+                _web.GotFocus += (_, _) => _onFocused?.Invoke();
+                _web.PreviewMouseDown += (_, _) => _onFocused?.Invoke();
+
+                WebHost.Children.Clear();
+                WebHost.Children.Add(_web);
             }
+
+            try
+            {
+                await _web.EnsureCoreWebView2Async();
+            }
+            catch (Exception ex)
+            {
+                ShowFallback("WebView2 runtime unavailable or failed to initialize.\n\n" + ex.Message);
+                return;
+            }
+
+            try
+            {
+                _web.CoreWebView2.NavigationCompleted += (_, _) =>
+                {
+                    try
+                    {
+                        var uri = _web.Source?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(uri))
+                        {
+                            UrlBox.Text = uri;
+                            _onUrlChanged?.Invoke(uri);
+                        }
+                    }
+                    catch { }
+                };
+            }
+            catch { }
         }
-        catch
+        catch (Exception ex)
         {
-            // Keep UI alive even if WebView2 fails to init.
+            ShowFallback("Browser tile failed to initialize.\n\n" + ex.Message);
         }
     }
 
-    private void HookEvents()
+    private void ShowFallback(string message)
     {
         try
         {
-            Web.CoreWebView2.NavigationCompleted += (_, _) =>
-            {
-                try
-                {
-                    var uri = Web.Source?.ToString() ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(uri))
-                    {
-                        UrlBox.Text = uri;
-                        _onUrlChanged?.Invoke(uri);
-                    }
-                }
-                catch { }
-            };
-
-            Web.GotFocus += (_, _) => _onFocused?.Invoke();
-            Web.PreviewMouseDown += (_, _) => _onFocused?.Invoke();
+            WebFallbackText.Text = message ?? "Browser unavailable.";
+            WebFallback.Visibility = Visibility.Visible;
         }
         catch { }
     }
@@ -84,9 +103,13 @@ public partial class BrowserTile : UserControl
         try
         {
             UrlBox.Text = url;
-            Web.Source = new Uri(url);
             _onUrlChanged?.Invoke(url);
             _onFocused?.Invoke();
+
+            if (_web != null)
+            {
+                _web.Source = new Uri(url);
+            }
         }
         catch { }
     }
@@ -95,7 +118,7 @@ public partial class BrowserTile : UserControl
     {
         try
         {
-            Web.Focus();
+            _web?.Focus();
             _onFocused?.Invoke();
         }
         catch { }

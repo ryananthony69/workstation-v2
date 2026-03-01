@@ -1,18 +1,19 @@
 # Handoff
 
 ## What changed
-- Fixed build failures by making the project WPF-only (no WinForms) to eliminate ambiguous type errors (Button/UserControl/Application/KeyEventArgs).
-- Reworked Script Runner to execute scripts via powershell.exe (stdin) and capture stdout/stderr; removed System.Management.Automation dependency that caused missing namespace errors.
-- Reworked CanvasPanel to avoid WinForms folder picker; uses WPF-only OpenFileDialog folder-selection workaround.
-- Corrected build/run commands:
-  - dotnet build does NOT support --project; use dotnet build <path>.
+- Fixed likely startup crash by removing WebView2 control from XAML:
+  - BrowserTile now creates WebView2 dynamically in code with try/catch
+  - If WebView2 fails to initialize, the tile shows a fallback message instead of crashing the app
+- Added crash logging + unhandled exception handling:
+  - Writes %LOCALAPPDATA%\WorkstationV2\crash.log
+  - Shows a message box for unhandled UI-thread exceptions (and logs them)
+- Updated Run-Dev.ps1 to point to crash.log when the process exits with the common .NET unhandled exception code (-532462766)
 
 ## How to run/use
-- From repo root:
-  - dotnet build ""C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\WorkstationV2\WorkstationV2.csproj"" -c Debug
-  - dotnet run --project ""C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\WorkstationV2\WorkstationV2.csproj""
 - From ANY PowerShell directory:
   - & ""C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\Run-Dev.ps1""
+- If the app exits unexpectedly:
+  - Check: %LOCALAPPDATA%\WorkstationV2\crash.log
 
 ## How to test/verify
 - Build:
@@ -21,17 +22,16 @@
   - & ""C:\Users\Ryana_pzq4frx\Desktop\workstation-v2\Run-Dev.ps1""
 - Verify:
   - App launches
-  - Script Runner: enter Get-Date then Ctrl+Enter; output shows and is copied
-  - Canvas Panel: Browse Vault / Pick Canvas works; Open Canvas triggers Obsidian link
+  - If WebView2 is unavailable, browser tiles show a fallback message (app stays open)
+  - If an exception occurs, crash.log records it
 
 ## Known issues
-- Vault folder picker uses a WPF OpenFileDialog workaround (select folder by navigating to it and clicking Open).
+- Browser tiles require WebView2 runtime for full browsing; without it, fallback text is shown.
 
 ## Next steps
-- Add Run-Publish.ps1 to publish Release output into .\dist\ and document running the published exe.
-- Re-add in-process PowerShell later only if needed (without enabling WinForms).
+- Add a small “Copy crash log path” button in the UI when a browser tile falls back
+- Add a non-modal status banner for browser initialization failures
 
 ## Next ChatGPT Prompt
-The build was failing due to WinForms/WPF type ambiguities and missing System.Management.Automation.
-We fixed the project to be WPF-only and changed Script Runner to execute scripts via powershell.exe.
-Next: add a Run-Publish.ps1 to publish Release to .\dist\ and update README/Handoff with how to run the published exe.
+We fixed a runtime crash by removing WebView2 from XAML and instantiating it dynamically with try/catch + fallback UI, and added crash logging to %LOCALAPPDATA%\WorkstationV2\crash.log.
+Next: implement Run-Publish.ps1 to publish Release to .\dist\ and update README/Handoff with how to run the published exe.
