@@ -1,0 +1,45 @@
+<UserControl x:Class="WorkstationV2.Controls.CanvasPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="300" MinHeight="200">
+    <Border BorderBrush="#2A2A2A" BorderThickness="1" Margin="6">
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Canvas Control Panel" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+            <Grid Grid.Row="1" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Vault:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="VaultBox" Grid.Column="1" MinHeight="26" VerticalContentAlignment="Center"/>
+                <Button Grid.Column="2" Content="Browse" Margin="8,0,0,0" Padding="10,2" Click="BrowseVault_Click"/>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Canvas:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="CanvasBox" Grid.Column="1" MinHeight="26" VerticalContentAlignment="Center"/>
+                <Button Grid.Column="2" Content="Pick" Margin="8,0,0,0" Padding="10,2" Click="PickCanvas_Click"/>
+            </Grid>
+
+            <WrapPanel Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <Button Content="Open Canvas" Margin="0,0,8,8" Padding="10,4" Click="OpenCanvas_Click"/>
+                <Button Content="Open Vault" Margin="0,0,8,8" Padding="10,4" Click="OpenVault_Click"/>
+                <Button Content="Focus Obsidian" Margin="0,0,8,8" Padding="10,4" Click="FocusObsidian_Click"/>
+            </WrapPanel>
+        </Grid>
+    </Border>
+</UserControl>

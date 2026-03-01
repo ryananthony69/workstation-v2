@@ -1,0 +1,16 @@
+{
+  "tools": [
+    { "label": "ChatGPT",        "type": "OpenUrl",   "tileTarget": 1, "payload": { "url": "https://chatgpt.com" } },
+    { "label": "GitHub",         "type": "OpenUrl",   "tileTarget": 2, "payload": { "url": "https://github.com" } },
+    { "label": "Obsidian",       "type": "OpenUrl",   "tileTarget": 3, "payload": { "url": "https://obsidian.md" } },
+    { "label": "Focus Tile 1",   "type": "FocusTile", "tileTarget": 1 },
+    { "label": "Focus Tile 2",   "type": "FocusTile", "tileTarget": 2 },
+    { "label": "Focus Tile 3",   "type": "FocusTile", "tileTarget": 3 },
+    { "label": "Open Canvas",    "type": "OpenCanvas", "payload": { "mode": "state" } },
+    { "label": "Open Vault",     "type": "OpenVault",  "payload": { "mode": "state" } },
+    { "label": "Focus Obsidian", "type": "FocusObsidian" },
+    { "label": "Explorer",       "type": "LaunchApp", "payload": { "exe": "explorer.exe", "args": "" } },
+    { "label": "Run: Get-Date",  "type": "RunScript", "payload": { "script": "Get-Date" } },
+    { "label": "Run: Get-ChildItem", "type": "RunScript", "payload": { "script": "Get-ChildItem | Select-Object -First 50" } }
+  ]
+}

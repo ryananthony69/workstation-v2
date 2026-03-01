@@ -1,0 +1,22 @@
+# Build outputs
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Secrets (minimum required)
+.env
+*.env
+secrets.*
+credentials.*
+*.key
+*.pfx
+*.pem
+*.crt
